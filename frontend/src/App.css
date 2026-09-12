@@ -1,0 +1,3196 @@
+/* ==========================================================================
+   Design tokens — the "Research OS" visual system: black-and-white minimalism, right angles/small
+   radii, a mono font for labels and status badges, black as the primary action color (not a colored
+   accent), echoing the three design mockups under design/ (login/input/agent_run). This round of
+   changes only rewrites the variable layer — the vast majority of existing components already use the
+   var(--bg)/var(--panel)/var(--text)/var(--border)/var(--accent) set of variables, so changing them
+   here re-skins the whole site without rewriting color values component by component; the new
+   AppShell/Stepper/StepCard/LoginPage etc. components get their own sections, not reusing the old
+   .landing/.conversation layout (that's a relic of the "pure minimalist textbox single page" era, a
+   different layout philosophy from the new sidebar+header frame).
+   ========================================================================== */
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --panel-alt: #fafafb;
+  --text: #16171a;
+  --text-dim: #6b6d76;
+  --border: #e3e4e8;
+  /* accent is reserved for semantic colors like "in progress/link/info hint" — it's no longer the
+     primary button color: in the new visual system the primary button color is --ink (near-black),
+     echoing the uniformly black CTA buttons in the design mockups, not a colored brand color */
+  --accent: #2f6feb;
+  --ink: #16171a;
+  --ink-contrast: #ffffff;
+  --ok: #1a7f37;
+  --warn: #9a6700;
+  --block: #c62828;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  --shell-sidebar-width: 240px;
+}
+
+/* The dark-mode variable set is defined once in one place — both paths, the system preference and the
+   user's manual toggle (ThemeToggle.tsx, written onto <html data-theme>, persisted to localStorage),
+   reuse this same copy rather than maintaining two sets of color values.
+   - No manual choice made (data-theme absent): follow the system preference; the
+     :not([data-theme="light"]) negation is there so that in the combination "system is dark but the
+     user manually chose light," the manual choice wins.
+   - Manually chose dark: force dark regardless of the system preference (echoing user feedback — the
+     system being dark meant the page kept displaying in dark mode, and it needed to be possible to
+     manually switch back to light/force dark, not rely purely on following the system). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1012;
+    --panel: #17181b;
+    --panel-alt: #1c1d21;
+    --text: #edeef0;
+    --text-dim: #9a9ba3;
+    --border: #2a2b30;
+    --accent: #6d9bff;
+    --ink: #edeef0;
+    --ink-contrast: #0f1012;
+    --ok: #3fb950;
+    --warn: #d4a72c;
+    --block: #f85149;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f1012;
+  --panel: #17181b;
+  --panel-alt: #1c1d21;
+  --text: #edeef0;
+  --text-dim: #9a9ba3;
+  --border: #2a2b30;
+  --accent: #6d9bff;
+  --ink: #edeef0;
+  --ink-contrast: #0f1012;
+  --ok: #3fb950;
+  --warn: #d4a72c;
+  --block: #f85149;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.page {
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ---------- Theme toggle (small top-right button, non-inline variant kept as a fallback) ---------- */
+/* This used to be the gear+popover styling for the settings panel (Provider/prompt language/
+   theory-jargon-retry cap/health check, SettingsGear.tsx) — the whole settings panel has been removed
+   at the user's request (Provider/retry cap now use the defaults in settings.tsx, language moved
+   separately to the sidebar, see AppShell.tsx and LanguageToggle.tsx); only the theme toggle button's
+   non-inline variant is kept here (both current actual usages are inline, using
+   .settings-toggle-inline's styling, see ThemeToggle.tsx), in case some future page outside AppShell
+   needs its own standalone floating theme-toggle entry point. */
+.theme-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 20;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  color: var(--text);
+}
+
+/* ---------- Input page: a plain textbox ---------- */
+
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.landing h1 {
+  font-size: 2rem;
+  letter-spacing: 0.05em;
+  margin: 0 0 0.5rem;
+}
+
+.landing-sub {
+  color: var(--text-dim);
+  margin: 0 0 2rem;
+}
+
+.landing-testcase-note {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  font-style: italic;
+  margin: -1.5rem 0 1rem;
+}
+
+.landing-form {
+  width: min(640px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.landing-form textarea {
+  font: inherit;
+  font-size: 1.05rem;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  resize: vertical;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+
+.landing-form textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.landing-form button {
+  align-self: center;
+  padding: 0.65rem 2.2rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.landing-form button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.landing-history-link {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.landing-history-link:hover {
+  color: var(--accent);
+}
+
+/* ---------- Run history list page ---------- */
+
+.history-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+.history-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.history-header h1 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.history-header a {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.history-header a:hover {
+  color: var(--accent);
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.history-item a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  text-decoration: none;
+  color: var(--text);
+}
+
+.history-item a:hover {
+  border-color: var(--accent);
+}
+
+.history-step-group {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.history-step {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* The ring progress indicator — see the top-of-file comment in components/ProgressRing.tsx. The track
+   uses --border (the same color as every other static divider, unobtrusive), the completed arc uses
+   --accent (the same accent color as the "advance to next step" button, keeping the meaning "this is a
+   progress/action-related color" consistent across the whole interface). */
+.progress-ring-track {
+  stroke: var(--border);
+}
+
+.progress-ring-fill {
+  stroke: var(--accent);
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+/* All 6 steps finished — switch to green (the same --ok used everywhere else for "passed"), per
+   user feedback "if it hits 100%, the ring could turn green." */
+.progress-ring-complete .progress-ring-fill {
+  stroke: var(--ok);
+}
+
+.history-preview {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88rem;
+}
+
+.history-time {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ---------- Conversation page ---------- */
+
+.conversation {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.conv-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Plan panel: a six-step plan, step 1 is dynamic, steps 2-6 are honestly labeled "not implemented" */
+
+.plan {
+  list-style: none;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.plan-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.plan-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.plan-name {
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.plan-tag {
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.plan-unimplemented {
+  opacity: 0.45;
+}
+
+.plan-running .plan-icon {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.plan-done .plan-icon {
+  border-color: var(--ok);
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
+}
+
+.plan-needs_input .plan-icon {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.plan-blocked .plan-icon {
+  border-color: var(--block);
+  color: var(--block);
+}
+
+/* Chat area */
+
+.transcript {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.turn-divider {
+  align-self: center;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  padding: 0.2rem 0.8rem;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  margin: 0.5rem 0;
+}
+
+.bubble {
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.bubble-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 0.3rem;
+}
+
+.bubble-sub {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+}
+
+.bubble-text {
+  white-space: pre-wrap;
+}
+
+/* Native tags rendered by react-markdown (h1-h3/ul/ol/li/p/strong/code etc.), see
+   components/Markdown.tsx. Element selectors are used instead of giving every tag its own className,
+   because react-markdown renders native tags by default, so there's no need to invent a separate class
+   naming scheme the way .bubble-pre does — wrapping a .markdown-body scope around the outside keeps
+   this from affecting h1-h3/ul/ol elsewhere on the page. */
+.markdown-body {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0.9rem 0 0.4rem;
+  color: var(--text);
+}
+
+.markdown-body p {
+  margin: 0.5rem 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.4rem 0;
+  padding-left: 1.4rem;
+}
+
+.markdown-body li {
+  margin: 0.2rem 0;
+}
+
+.markdown-body li > p {
+  margin: 0;
+}
+
+.markdown-body strong {
+  font-weight: 700;
+}
+
+.markdown-body code {
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+}
+
+.markdown-body a {
+  color: var(--accent);
+}
+
+.bubble-pre {
+  margin: 0;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-dim);
+}
+
+.bubble-user {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.bubble-assistant {
+  background: var(--panel);
+}
+
+.bubble-tool {
+  border-style: dashed;
+}
+
+.bubble-tool-return {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  border: none;
+  background: transparent;
+  padding: 0 0.2rem;
+}
+
+/* ---------- D.4 retrieval tool calls (search_scopus/get_paper_abstract): collapsed in-place bubbles
+   ----------
+   See components/ToolCallEntry.tsx — each call gets its own bubble, appearing at its natural position
+   in audit_trail (not pulled out into a separate widget, which would disrupt the genuine
+   thinking→call→thinking→call alternating order — this was actually reported as feedback). Uses the
+   same collapse interaction as the thinking bubble, collapsed by default, expand to see this call's
+   search query/DOI + results. */
+/* This line is now a <button> itself (no longer <details><summary>) — clicking no longer expands
+   in-place, instead it hands this call off to the details panel on the right (.shell-details-panel,
+   see AppShell.tsx/ToolDetailsPanel.tsx); the rule below applies the old summary's layout to the
+   button, and also resets the button's default appearance (font/text alignment/width) so it still
+   looks like "a bubble" rather than a native button. */
+.bubble-tool-call-single {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+}
+
+.bubble-tool-call-single:hover {
+  border-color: var(--text-dim);
+}
+
+/* The entry currently shown in the right-side details panel — the same "accent-colored outline + light
+   background" highlight technique as .shell-nav-active, so the user can tell at a glance which call
+   the panel is displaying. */
+.tool-call-single-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.tool-call-single-icon {
+  flex-shrink: 0;
+}
+
+.tool-call-status-calling .tool-call-single-icon {
+  color: var(--warn);
+}
+
+.tool-call-status-retry .tool-call-single-icon {
+  color: var(--block);
+}
+
+.tool-call-status-done .tool-call-single-icon {
+  color: var(--ok);
+}
+
+.tool-call-detail-body {
+  margin-top: 0.5rem;
+}
+
+.tool-call-detail-status {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  margin: 0.3rem 0;
+}
+
+.tool-call-detail-status-warn {
+  color: var(--warn);
+}
+
+.search-result-summary-line {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin: 0.4rem 0 0.3rem;
+}
+
+.search-result-query {
+  margin: 0.5rem 0;
+  font-size: 0.78rem;
+}
+
+.search-result-query code {
+  display: block;
+  margin-top: 0.2rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  word-break: break-word;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+
+.search-result-empty {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  margin: 0.4rem 0 0;
+}
+
+.search-result-papers {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.search-result-paper {
+  border-top: 1px dashed var(--border);
+  padding-top: 0.5rem;
+}
+
+.search-result-paper-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.search-result-paper-meta {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin: 0.15rem 0 0.3rem;
+}
+
+.search-result-paper-meta a {
+  color: var(--accent);
+}
+
+.search-result-paper-abstract {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.bubble-retry {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+}
+
+.bubble-thinking summary,
+.bubble-raw summary,
+.bubble-details summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.bubble-details {
+  margin-top: 0.4rem;
+}
+
+.thinking-live-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.thinking-live-dots .dot {
+  width: 4px;
+  height: 4px;
+}
+
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  padding: 0.4rem 0.2rem;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  animation: pulse 1.2s infinite ease-in-out;
+}
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.alert-block {
+  background: color-mix(in srgb, var(--block) 12%, transparent);
+  color: var(--block);
+  border: 1px solid var(--block);
+}
+
+/* Human-intervention prompt card */
+
+.clarify-card {
+  border: 1px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+}
+
+.clarify-head {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--warn);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+
+.clarify-question {
+  font-weight: 600;
+  margin: 0 0 0.7rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.chip {
+  border: 1px solid var(--warn);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warn) 15%, transparent);
+}
+
+.chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.clarify-freetext {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.clarify-freetext input {
+  flex: 1;
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+.clarify-freetext button {
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.clarify-freetext button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Result summary card */
+
+.result-summary {
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-size: 0.88rem;
+}
+
+.result-summary.tone-ok {
+  border-color: var(--ok);
+}
+.result-summary.tone-warn {
+  border-color: var(--warn);
+}
+.result-summary.tone-block {
+  border-color: var(--block);
+}
+
+.status-badge {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+
+.tone-ok .status-badge {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
+}
+.tone-warn .status-badge {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
+}
+.tone-block .status-badge {
+  color: var(--block);
+  background: color-mix(in srgb, var(--block) 15%, transparent);
+}
+
+.result-summary .note {
+  color: var(--text-dim);
+  margin: 0 0 0.6rem;
+  line-height: 1.5;
+}
+
+.summary-field {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* Step 3's coverage_report/rationale/cross_source_tension_note/verdict fields are multi-point long
+   text the agent writes (commonly "(1) ... (2) ... (3) ..."-style), and would get crammed into an
+   unreadable blob alongside .summary-field's default "label + content on the same line" side-by-side
+   layout — this variant instead puts the label on its own line, with the content in its own block,
+   rendered via Markdown (a real blank line between paragraphs is what creates a new paragraph, per
+   the formatting requirement in the corresponding field's description in atba/schemas.py), not plain
+   text */
+.summary-field-block {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+}
+
+.summary-field-block > .summary-label {
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.summary-field-block .markdown-body {
+  font-size: 0.85rem;
+}
+
+.summary-field-block .markdown-body p {
+  margin: 0 0 0.5rem;
+}
+
+.summary-field-block .markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.summary-label {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.fields dt {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.fields dd {
+  margin: 0;
+}
+
+/* Retry: re-run the current step from scratch with the same input as-is — at the user's request, the
+   button that used to sit at the bottom of every step page for "change the phenomenon and start over"
+   (back to the landing page) has been removed (the sidebar's "New Research" already does the same
+   thing, no need to repeat that entry point on every step); this .retry-btn is the only secondary
+   action left, made — at the user's request — smaller and less prominent than next-step-btn: by
+   default it doesn't even draw a border, just dim gray text, only surfacing a faint outline and
+   background on hover, rather than "retry" and "next step" sitting side by side with equal visual
+   weight. */
+.retry-btn {
+  align-self: center;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  /* This class is also used as a <Link> (Step3RunPage.tsx's "back to step 2 to reselect") — these two
+     properties, which a native <button> doesn't have, are added for the same reason as next-step-btn */
+  text-decoration: none;
+  display: inline-block;
+}
+
+.retry-btn:hover {
+  border-color: var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+}
+
+/* Once the previous step passes, "advance to the next step" — distinguished from restart-btn, using
+   the accent color to emphasize this is the primary action for advancing the pipeline; restart-btn
+   (change the phenomenon and start over) is the secondary action */
+.next-step-btn {
+  align-self: center;
+  margin-top: 0.5rem;
+  padding: 0.55rem 1.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-weight: 600;
+  font: inherit;
+}
+
+/* .next-step-btn is now used both as a <Link> (step 1 → step 2) and as a <button disabled> (step 2's
+   "confirm selection" can only be clicked once at least one direction is checked) — a disabled state
+   is added here, otherwise a disabled button would look identical to a clickable one */
+.next-step-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+}
+
+/* Retry + Next Step (or Confirm Selection/Export Report) are now placed on the same row — .retry-btn/
+   .next-step-btn used to each be independent direct children of .transcript (.transcript is a flex
+   column), each taking up a full row; this wrapping container lines them up in a row instead. The
+   children's own align-self/margin-top go unused here, with the in-row spacing handed to this
+   container's gap and vertical centering to align-items (the retry button is shorter, the next-step
+   button taller, otherwise their tops wouldn't align). */
+.step-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.step-actions-row .retry-btn,
+.step-actions-row .next-step-btn {
+  align-self: auto;
+  margin-top: 0;
+}
+
+/* Echoes "the current phenomenon" at the top of the step 2 page, so the user knows which phenomenon
+   they're theory-matching against without having to jump back to step 1 */
+.phenomenon-recap {
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  border: 1px dashed var(--border);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.phenomenon-recap p {
+  margin: 0.3rem 0 0;
+  color: var(--text);
+}
+
+/* The "this run's statistics" section at the bottom of step 6's report — the same dashed-border small
+   card visual language as .phenomenon-recap, placed after the report body and before the action
+   buttons, at one font-size step smaller than the body, clearly marking it as metadata rather than
+   part of the body content. */
+.run-usage-summary {
+  margin-top: 1rem;
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  border: 1px dashed var(--border);
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.run-usage-summary p {
+  margin: 0.25rem 0 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+
+/* Step 2: candidate theoretical direction card list */
+.theory-directions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.theory-direction-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
+  background: color-mix(in srgb, var(--accent) 4%, var(--panel));
+}
+
+/* A checked card: matches next-step-btn's color family to echo "these are the ones going into the
+   next step" — more noticeable than a plain border, but not glaring */
+.theory-direction-card.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel));
+}
+
+.theory-direction-checkbox {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.theory-direction-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.theory-direction-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin-bottom: 0.3rem;
+}
+
+.theory-direction-rationale {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* ---------- Step 3: research question card + per-direction exploration records ---------- */
+
+.research-question-card {
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+
+.research-question-text {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+/* problematization_detail — only appears when research_question_type=problematization, nested inside
+   the research question card, echoing the outer card's accent border, but the fields themselves use
+   .summary-field's generic layout rather than inventing a separate one */
+.problematization-card {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border);
+}
+
+.assumption-type-badge {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel));
+  color: var(--accent);
+}
+
+/* Step 4's sub-step 0 — the deep theoretical retrieval done before candidate generation, the main
+   basis for the candidate theories; distinguished from the candidate list below with its own
+   independent light-colored card, not part of the candidate cards, and not collapsed via details
+   either (expanded by default, see the component's comment) */
+.theoretical-grounding-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  background: color-mix(in srgb, var(--accent) 4%, var(--panel));
+}
+
+.examined-directions-label {
+  display: block;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.direction-records {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.direction-record {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  background: var(--panel);
+}
+
+/* Credibility tiers for the hit level: an exact-mechanism hit is the most solid (accent-colored
+   border), theory-family/broad-discipline are a legitimate but weaker-tier conclusion (neutral
+   border), a retrieval tool failure is fault (block-colored border) — the strength of this record's
+   evidence should be visible at a glance, not all looking the same */
+.direction-record.tone-strong {
+  border-left: 3px solid var(--accent);
+}
+.direction-record.tone-weak {
+  border-left: 3px solid var(--warn);
+}
+.direction-record.tone-fault {
+  border-left: 3px solid var(--block);
+}
+
+.direction-record-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.direction-record-name {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.hit-level-badge {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.direction-record-verdict {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.direction-record-verdict .markdown-body p {
+  margin: 0 0 0.5rem;
+}
+
+.direction-record-verdict .markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.queries-tried {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.queries-tried summary {
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.queries-tried ol {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.queries-tried code {
+  font-size: 0.76rem;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  word-break: break-word;
+}
+
+.cited-evidence-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cited-evidence-item {
+  border-top: 1px dashed var(--border);
+  padding-top: 0.4rem;
+}
+
+.cited-evidence-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.cited-evidence-meta {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  margin: 0.1rem 0 0.25rem;
+}
+
+.cited-evidence-snippet {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.cited-evidence-tag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+
+.cited-evidence-abstract-details {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.cited-evidence-abstract-details summary {
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.cited-evidence-abstract {
+  margin: 0.3rem 0 0;
+  line-height: 1.55;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* ---------- Step 4: candidate theory cards ---------- */
+
+/* Horizontal cards rather than stacking vertically one after another — 3-5 candidates are in a
+   side-by-side comparison relationship (which ranks higher is obvious left-to-right), whereas
+   comparing two candidates in a vertical stack means scrolling up and down repeatedly; laying them
+   out horizontally better matches the reading need of "comparing." The candidate count is usually
+   3-5; when they don't all fit on one row, it wraps automatically to the next row (see the grid setup
+   for .candidate-cards below) rather than forcibly compressing each card's width until the content
+   gets crammed together, and without a horizontal scrollbar either — the user first gave feedback that
+   "candidate theories laid out one after another" was hard to compare, so it was changed to
+   horizontal; then gave feedback that "a scrollbar shows up again when the window narrows, could this
+   be made responsive," so both requirements — horizontal + auto-wrap — are satisfied together. */
+/* Narrative content (status/revision notes/mechanism-grounding retrieval/selection rationale/pairwise
+   comparisons) — everything in Step4ResultSummary.tsx except the candidate cards is wrapped in this
+   .result-summary-prose layer. This originally had its own width cap (first a fixed 760px, later
+   changed to clamp(760px,60vw,1000px) so the width varies continuously with the viewport), with the
+   reasoning being "a big block of Markdown text laid out at the same full width as the candidate-card
+   area makes for lines too long to read comfortably." But looking at actual wide-screen screenshots,
+   the user gave feedback: even capped at 1000px via clamp, next to the candidate-cards-section below
+   filling the entire row, this column still looked shrunk to the left with a big blank area on the
+   right — the two columns' width mismatch itself read more like an unfinished half-measure than "the
+   line being a bit long" — so it was changed to have no width cap at all, sharing the same
+   .shell-content-wide full width (1600px cap) as the candidate-card area below, so the two columns'
+   left and right edges align into one neat vertical line, no longer feeling disjointed with one column
+   narrow and one wide on a wide screen. */
+.result-summary-prose {
+  max-width: none;
+}
+
+.candidate-cards-section {
+  margin-top: 1rem;
+}
+
+/* The list/canvas toggle bar — two role="tablist" buttons, not part of the same family as
+   .theme-toggle/.settings-toggle-inline (those are icon buttons); this is a segmented control with
+   text labels, styled independently. List view by default; the switch is pure frontend state, not
+   persisted (see the comment on the view useState in Step4ResultSummary.tsx). */
+.candidate-view-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.candidate-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+  background: var(--panel-alt);
+}
+
+.candidate-view-toggle-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.candidate-view-toggle-btn.active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.candidate-view-toggle-btn:not(.active):hover {
+  color: var(--text);
+}
+
+/* ---------- Step 4: candidate theory canvas view (CandidateCanvas.tsx) ---------- */
+
+.candidate-canvas-hint {
+  margin: 0 0 0.5rem;
+  max-width: 760px;
+}
+
+/* Height is fixed rather than growing with content — react-flow needs a container with a definite
+   height to compute fitView correctly; watching the outer div with a ResizeObserver would also work,
+   but the candidate canvas doesn't need to grow responsively, and a fixed height is simpler. The width
+   follows the full width the outer .candidate-cards-section already gets under shell-content-wide. */
+.candidate-canvas {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-alt);
+  overflow: hidden;
+}
+
+/* Overrides react-flow's default styling to plug into this site's CSS-variable theme, rather than the
+   fixed dark color scheme seen in flowith's screenshots — this site itself has both light/dark
+   themes (see :root at the top of App.css), and the canvas view needs to switch along with them, so
+   colors can't be hardcoded. */
+.candidate-canvas .react-flow__background {
+  background: var(--panel-alt);
+}
+
+.candidate-canvas .react-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.candidate-canvas .react-flow__controls-button {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.candidate-canvas .react-flow__controls-button:hover {
+  background: var(--panel-alt);
+  color: var(--text);
+}
+
+.candidate-canvas .react-flow__attribution {
+  display: none;
+}
+
+.candidate-canvas .react-flow__edge-path {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+
+/* Hover highlighting — see the file-header comment in CandidateCanvas.tsx: what gets brightened and
+   thickened is "edges related to the currently-hovered node," with the rest dimmed — not
+   hidden/filtered (there are only 3-5 candidates, not enough to form a hairball that needs
+   filtering). */
+.candidate-canvas .react-flow__edge.candidate-edge-hovered .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.candidate-canvas .react-flow__edge.candidate-edge-dimmed .react-flow__edge-path {
+  stroke: var(--border);
+  opacity: 0.35;
+}
+
+.candidate-canvas .react-flow__edge-text {
+  fill: var(--text-dim);
+}
+
+.candidate-canvas .react-flow__edge.candidate-edge-hovered .react-flow__edge-text {
+  fill: var(--accent);
+  font-weight: 600;
+}
+
+/* Compact node cards — full field display is handed to the detail overlay that opens on click
+   (reusing CandidateCard); here only a few "scannable at a glance" items are shown: rank/name/
+   tags/mechanism-borrowing pattern/a one-sentence excerpt; the width is fixed so the circular
+   layout's spacing stays predictable. */
+.candidate-node {
+  width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  background: var(--panel);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.candidate-node-selected {
+  border: 1px solid var(--accent);
+  border-left: 3px solid var(--accent);
+}
+
+.candidate-node-hovered {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.candidate-node-dimmed {
+  opacity: 0.5;
+}
+
+.candidate-node-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.candidate-node-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+}
+
+.candidate-node-badge {
+  font-size: 0.68rem;
+}
+
+/* The four-virtue scores inside a canvas card — using a 2x2 grid rather than flex-wrap like
+   .virtue-scores-row, because the node card's width is fixed at 220px (see NODE_WIDTH in
+   CandidateCanvas.tsx), and a short Chinese label like "融贯 4" differs a lot in length from the
+   English "Consilience 4" — flex-wrap might squeeze into four 1+1+1+1 rows in English, or two 2+2 rows
+   in Chinese, an unpredictable height that wouldn't match the fixed NODE_HEIGHT estimate the circular
+   layout relies on; a fixed 2-column grid reliably takes up two rows regardless of language, keeping
+   card height predictable. */
+.candidate-node-virtues {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.4rem;
+}
+
+.candidate-node-virtues .virtue-score {
+  font-size: 0.68rem;
+  padding: 0.05rem 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.candidate-node-excerpt {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+/* The detail overlay that opens when a node is clicked — reuses .candidate-cards/.candidate-card to
+   render the body (instead of rewriting field display all over again), wrapped in an outer
+   overlay-mask + centered "dialog shell"; clicking the mask closes it, clicking the card itself
+   doesn't bubble up and close it (see the onClick/stopPropagation in CandidateCanvas.tsx). The whole
+   shell is a flex column layout, split into a non-scrolling header (just the close button) + a
+   scrollable body — a candidate's detail fields are numerous, and the body is often 5x the viewport
+   height and needs scrolling; previously the close button lived in the same scroll container as the
+   body, so scrolling down a few screens would scroll the close button out of view with no way to find
+   it; now the header is its own separate block, doesn't scroll with the body, and is visible and
+   clickable at all times. */
+.candidate-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  z-index: 50;
+}
+
+.candidate-detail-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(85vh, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  /* The overlay needs to clearly stand out from the candidate canvas/mask behind it as "this is the
+     dialog floating on top" — a soft ring of shadow creates that floating feeling; the mask itself is
+     already semi-transparent black, and the shadow holds up fine in both light/dark themes without
+     needing per-theme adjustment. */
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+/* The non-scrolling header — holds only the close button, right-aligned; the candidate name/rank etc.
+   already appear at the top of the card body (see candidate-card-header in CandidateCard.tsx), so the
+   header doesn't repeat that display, keeping this layer as short as possible to leave room for the
+   body. */
+.candidate-detail-header {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.5rem 0.5rem 0;
+}
+
+.candidate-detail-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 0.9rem 0.9rem;
+}
+
+/* Uses a compound selector (.candidate-cards.candidate-cards-overlay) rather than a standalone
+   .candidate-cards-overlay — this was written the standalone way once before, and ended up silently
+   overridden by .candidate-cards' own display:grid/flex rule, which has "the same specificity, later
+   in source order" (confirmed by actually checking getComputedStyle — the overlay's <ol> was in fact
+   always display:flex, not the block this wanted; it just never surfaced because the overlay only ever
+   has one card, and a flex single-item vs. a block single-item happen to look visually identical). A
+   compound selector has higher specificity than the standalone .candidate-cards, so it reliably wins
+   regardless of which rule is written first in the file. */
+.candidate-cards.candidate-cards-overlay {
+  display: block;
+}
+
+/* The body card no longer has its own border/background — the outer .candidate-detail-overlay-inner is
+   already an entire "dialog shell" with a border+background+shadow; the card's own border would draw
+   a second ring inside it, looking like double-nested borders — removing it blends it into the
+   shell. */
+.candidate-cards-overlay .candidate-card {
+  flex: none;
+  width: 100%;
+  /* Cancels the 480px cap the base rule sets for list-view cards — the overlay's width is controlled
+     by .candidate-detail-overlay-inner itself (min(560px,100%)); the card should fill the overlay
+     completely, not leave another ring of blank space inside the overlay. */
+  max-width: none;
+  border: none;
+  border-left: none;
+  background: transparent;
+  padding: 0;
+}
+
+/* ...but the "selected" accent vertical bar is meaningful information (marking the final selected
+   candidate consistently with the list view), and shouldn't be wiped out along with the
+   indiscriminate border reset above — a selector of the same specificity is used here, placed after
+   it, to specifically bring this one back. */
+.candidate-cards-overlay .candidate-card.candidate-selected {
+  border: none;
+  border-left: 3px solid var(--accent);
+  padding-left: 0.75rem;
+}
+
+.candidate-detail-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.candidate-detail-close:hover {
+  background: var(--panel-alt);
+}
+
+/* Switched to CSS Grid's auto-fit + minmax for adaptive wrapping, replacing the previous "lay out flex
+   in one row, scroll horizontally if it doesn't fit" approach — per user feedback, "a scrollbar shows
+   up again on a small browser window, could this be made adaptive": a horizontal scrollbar isn't
+   friendly to content like candidate cards where "the full field set is several screens tall" (a
+   narrow screen already needs a touchscreen/trackpad horizontal scroll just to see the 2nd card, worse
+   than simply wrapping to the next row). auto-fit tries to fit as many columns as minmax() allows into
+   one row, wrapping automatically to the next row when a whole column doesn't fit — no need to
+   hardcode a chain of tiered judgments like "480px if wide enough, 320px if not, scroll if still not."
+   The browser works out how many columns per row and how wide each column is based on the actual
+   container width, naturally responsive: a wide screen still shows 3-5 columns (matching the
+   comparison need for horizontal layout), a narrow screen automatically folds to 2 columns or even 1,
+   no longer needing a horizontal scrollbar as a fallback. */
+.candidate-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.5rem;
+  display: grid;
+  /* minmax(min(320px, 100%), 1fr) — min(320px,100%) is used instead of writing 320px directly, to
+     prevent an extreme narrow screen (a theoretical small device) narrower than 320px from having the
+     grid track's 320px floor itself exceed the container's width, causing horizontal overflow instead;
+     wrapping it in min(...,100%) guarantees the track width never exceeds the container's own width,
+     so it never overflows at any viewport size. */
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 0.75rem;
+}
+
+.candidate-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  background: var(--panel);
+  /* The grid's column width is already determined by .candidate-cards' auto-fit/minmax above; a cap
+     just needs to be set here — when there are very few candidates (1-2), auto-fit would stretch the
+     only one or two columns to fill the entire row; without a cap, a single card with few candidates
+     could get stretched wider than the 480px explicitly requested in an earlier "wants wider cards"
+     request, making the field rows sparse and hard to read. */
+  max-width: 480px;
+}
+
+/* The selected candidate is distinguished from the rest with an accent border, visible at a glance as
+   "this is the final answer" */
+.candidate-card.candidate-selected {
+  border: 1px solid var(--accent);
+  border-left: 3px solid var(--accent);
+}
+
+.candidate-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.candidate-rank {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.candidate-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.candidate-tag {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.candidate-tag-selected {
+  background: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  color: var(--accent);
+}
+
+.candidate-tag-tied {
+  background: color-mix(in srgb, var(--warn) 16%, var(--panel));
+  color: var(--warn);
+}
+
+/* The null-hypothesis baseline — uses neutral border/text-dim rather than an emphasis color like
+   accent/warn: it isn't a marker of "performing well," it just labels "this is the one used for
+   comparison," see the comment on this tag in CandidateCard.tsx. */
+.candidate-tag-baseline {
+  background: var(--panel-alt);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.candidate-theory-elements {
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px dashed var(--border);
+}
+
+.virtue-scores {
+  margin: 0.6rem 0;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+.virtue-scores-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.3rem 0 0.4rem;
+}
+
+.virtue-score {
+  font-size: 0.78rem;
+  font-family: monospace;
+  padding: 0.1rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.revision-round-tag {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Generic verdict badge — the three verdict sites (novelty/lakatos/interrogation) share the same
+   color semantics (ok green/warn yellow/block red/accent this project's emphasis color), instead of
+   each defining their own */
+.verdict-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}
+
+.verdict-badge.tone-ok {
+  background: color-mix(in srgb, var(--ok) 16%, var(--panel));
+  color: var(--ok);
+}
+
+.verdict-badge.tone-warn {
+  background: color-mix(in srgb, var(--warn) 16%, var(--panel));
+  color: var(--warn);
+}
+
+.verdict-badge.tone-block {
+  background: color-mix(in srgb, var(--block) 16%, var(--panel));
+  color: var(--block);
+}
+
+/* ---------- Step 5: interrogation records ---------- */
+
+.interrogation-records {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.interrogation-record {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  background: var(--panel);
+}
+
+.interrogation-record.tone-ok {
+  border-left: 3px solid var(--ok);
+}
+.interrogation-record.tone-warn {
+  border-left: 3px solid var(--warn);
+}
+.interrogation-record.tone-block {
+  border-left: 3px solid var(--block);
+}
+
+.interrogation-question {
+  margin: 0.3rem 0;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.unanswered-weaknesses {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+.loop-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.loop-history-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel);
+  font-size: 0.85rem;
+}
+
+.loop-history-item.tone-ok {
+  border-left: 3px solid var(--ok);
+}
+.loop-history-item.tone-warn {
+  border-left: 3px solid var(--warn);
+}
+.loop-history-item.tone-block {
+  border-left: 3px solid var(--block);
+}
+
+.loop-back-instruction {
+  margin: 0.3rem 0 0;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* ---------- Step 4/5 loop: round divider (used on the step 5 page, distinguishing different rounds'
+   step 4/5 turns) ---------- */
+
+.round-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.round-divider::before,
+.round-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ---------- Step 6: theoretical contribution report (long-document layout, distinct from
+   .markdown-body's compact transcript-bubble styling) ---------- */
+
+.report-body {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  max-width: 100%;
+}
+
+.report-body h1 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--accent);
+}
+
+.report-body h2 {
+  font-size: 1.08rem;
+  font-weight: 700;
+  margin: 1.6rem 0 0.6rem;
+  color: var(--accent);
+}
+
+.report-body h3 {
+  font-size: 0.98rem;
+  font-weight: 700;
+  margin: 1.1rem 0 0.4rem;
+}
+
+.report-body p {
+  margin: 0.6rem 0;
+}
+
+.report-body ul,
+.report-body ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.report-body li {
+  margin: 0.25rem 0;
+}
+
+.report-body strong {
+  font-weight: 700;
+}
+
+.report-body hr {
+  border: none;
+  border-top: 1px dashed var(--border);
+  margin: 1.5rem 0;
+}
+
+.report-body code {
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+}
+
+.report-body a {
+  color: var(--accent);
+}
+
+/* In-body citation links — see the top-of-file comment in ReportView.tsx. The visible text needs to
+   read exactly like the APA parenthetical citation of a real journal article, not stand out like a
+   normal hyperlink (blue + underline instantly reads as "this is a link," which would break the
+   "reads like real literature" writing discipline, see atba/prompts/step6.zh.md) — so the color
+   follows the body text's own color, with only a dotted underline hinting "this is clickable," turning
+   into a solid line on hover for clearer feedback. */
+.citation-link {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--accent);
+  cursor: pointer;
+}
+
+.citation-link:hover {
+  border-bottom-style: solid;
+}
+
+/* The entry landed on after clicking a citation link — briefly highlighted, see handleCitationClick in
+   ReportView.tsx. */
+.citation-target-flash {
+  animation: citation-flash 1.5s ease;
+  border-radius: 4px;
+}
+
+@keyframes citation-flash {
+  0% {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* References/tables etc. need to scroll horizontally rather than blowing out the container's width —
+   the comparison table in the report doesn't have few columns */
+.report-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.85rem;
+  display: block;
+  overflow-x: auto;
+}
+
+.report-body th,
+.report-body td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+
+.report-body th {
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  font-weight: 700;
+}
+
+.mermaid-diagram {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* During streaming generation, a mermaid code block's content is still incomplete and rendering would
+   fail — the raw source is shown as-is as a fallback, then re-rendered once the text finishes */
+.mermaid-fallback {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ==========================================================================
+   AppShell — the new overall shell: a left sidebar (logo+nav) + a top header (page title+settings),
+   the frame shared by design/input.png and design/agent_run.png. Replaces the old .landing/
+   .conversation top-level layout (those two classes are still kept for old content to reuse, not
+   forcibly deleted).
+   ========================================================================== */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.shell-sidebar {
+  flex-shrink: 0;
+  width: var(--shell-sidebar-width);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.25rem 1rem;
+  background: var(--panel-alt);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.shell-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+  color: var(--text);
+  padding: 0.25rem;
+}
+
+.shell-logo-mark {
+  flex-shrink: 0;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--ink-contrast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shell-logo-mark svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.shell-logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.shell-logo-text strong {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+
+.shell-logo-text small {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.shell-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: var(--ink);
+  color: var(--ink-contrast);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-sm);
+}
+
+.shell-new-btn:hover {
+  opacity: 0.88;
+}
+
+.shell-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.shell-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+/* LanguageToggle.tsx renders this class with a <button> instead of an <a> (it's an action, not
+   navigation) — the button's default border/background/font are removed so it looks visually
+   consistent with the rest of .shell-nav-item */
+button.shell-nav-item {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+}
+
+button.shell-nav-item:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+a.shell-nav-item:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+.shell-nav-active {
+  background: var(--panel);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.shell-sidebar-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Collapse/expand — see the collapsed state in AppShell.tsx. When collapsed, the sidebar narrows down
+   to just an icon column, with the text labels (.shell-label, the logo's subtitle/nav item text/
+   language name/logout text) hidden entirely — not swapped for a separate trimmed-down DOM, so the
+   original hover/active styling is preserved and the title tooltip still works (hovering still shows
+   the full text hint). */
+.shell-sidebar-collapsed {
+  width: 4.25rem;
+  padding-left: 0.6rem;
+  padding-right: 0.6rem;
+}
+
+.shell-sidebar-collapsed .shell-label {
+  display: none;
+}
+
+.shell-sidebar-collapsed .shell-logo,
+.shell-sidebar-collapsed .shell-new-btn,
+.shell-sidebar-collapsed .shell-nav-item {
+  justify-content: center;
+}
+
+.shell-collapse-toggle {
+  color: var(--text-dim);
+}
+
+.shell-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* position:sticky is applied to the whole .shell-header (not just the title row) — the top progress
+   bar (the Stepper wrapped by .shell-header-stepper) is now this header's second row, sharing the
+   same sticky layer as the title row, so scrolling the page pins both rows to the top of the viewport
+   together — avoiding the inconsistent look of "the title stayed fixed but the progress bar scrolled
+   away with the content" (per user feedback). */
+.shell-header {
+  display: flex;
+  flex-direction: column;
+  padding: 0.9rem 1.75rem 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.shell-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+}
+
+.shell-header-stepper {
+  max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.shell-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.shell-header-title h1 {
+  font-size: 1.1rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-header-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.shell-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.shell-content {
+  flex: 1;
+  padding: 2rem 2.25rem 4rem;
+  max-width: 980px;
+  width: 100%;
+  /* On a wide screen, .shell-main is flex:1 filling the remaining space; .shell-content's max-width
+     only limits the content itself from stretching too wide (long lines are hard to read) — without
+     margin:auto, the content would sit left-aligned against the sidebar, leaving a big blank area on
+     the right, quite noticeable on a wide screen (per user screenshot feedback). */
+  margin: 0 auto;
+}
+
+/* Step-4-only — AppShell's wide prop (see the top-of-file comment in that file). What's relaxed is the
+   whole .shell-content/.step-card's available width, giving the candidate theory horizontal cards
+   (.candidate-cards-section) room to spread out — not making every page wider: the default 980px is
+   a readable line width tailored for long narrative text, and the other steps have no need for
+   "side-by-side comparison at a fixed width," so they shouldn't and don't need to widen along with it.
+   1600px roughly fits 3 480px candidate cards side by side (see .candidate-card), more restrained than
+   "no width cap at all" — on an ultrawide monitor this won't stretch the whole step-card to an
+   absurd width either. */
+.shell-content-wide {
+  max-width: 1600px;
+}
+
+/* The generic styling for the small embedded square button in the top header/login page — this used
+   to be exclusive to SettingsGear's inline variant; now that SettingsGear has been removed, it's
+   reused by ThemeToggle.tsx (when inline=true) — the naming was kept unchanged, since it's
+   fundamentally "a square icon button embedded in the document flow," not something exclusive to the
+   settings panel. */
+.settings-toggle-inline {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.settings-toggle-inline:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* ---------- The right-side "TOOL OUTPUT DETAILS" panel — design/tool_output_panel.png ----------
+   Symmetric with .shell-sidebar: the third flex child of .shell, with position:sticky+height:100vh
+   keeping it permanently on the right edge of the viewport, scrolling on its own, not scrolling away
+   along with the conversation content in .shell-content. This <aside> is only rendered when AppShell
+   receives a non-empty detailsPanel prop (see AppShell.tsx) — it takes up zero layout space at all
+   when no call is selected, not an "empty panel placeholder, content fades out" effect, purely a
+   present/absent binary state. */
+.shell-details-panel {
+  flex-shrink: 0;
+  width: 22rem;
+  max-width: 32vw;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.25rem 1.5rem;
+  background: var(--panel-alt);
+  border-left: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.details-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: -1.1rem;
+  background: var(--panel-alt);
+}
+
+.details-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.details-panel-close {
+  flex-shrink: 0;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.details-panel-close:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.details-panel-body {
+  font-size: 0.85rem;
+}
+
+/* The .tool-call-detail-body inside the details panel was moved over from ToolCallEntry.tsx's
+   in-place expansion (the content itself is unchanged, see ToolDetailsPanel.tsx) — the margin-top it
+   only needed in the bubble scenario is removed here: inside the panel it's already the sole content
+   of .details-panel-body, no extra spacing above it is needed. */
+.shell-details-panel .tool-call-detail-body {
+  margin-top: 0;
+}
+
+/* The on-page nav (PageOutlineNav.tsx) — the shape the user explicitly wanted after looking at
+   screenshots: "collapsed most of the time, titles for quick jumping appear only on hover."
+   position:fixed pins it to the right edge of the viewport, not participating in .shell's flex layout
+   and taking up no permanent width — a different thing from .shell-details-panel (the permanent
+   column ToolDetailsPanel uses) — that one takes up 22rem of layout space even collapsed, this one is
+   usually just a few short tick marks. Vertically centered: in most cases there aren't many sections,
+   and centering makes it easier to reach comfortably from any scroll position than pinning it to the
+   top. */
+.page-outline-fab {
+  position: fixed;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+}
+
+.page-outline-ticks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  /* The left padding is deliberately larger than the right — the panel expands to the left (see
+     .page-outline-panel below); this blank space is meant to "catch" the mouse's path from the tick
+     marks to the expanded panel, not just pure visual spacing. */
+  padding: 6px 4px 6px 12px;
+  max-height: 70vh;
+  overflow-y: auto;
+  /* A tick mark can also be clicked directly to jump, without needing to hover-expand the panel first
+     — this gives the same pointer-cursor hint as the links inside the panel. */
+  cursor: pointer;
+}
+
+.page-outline-tick {
+  display: block;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background-color 0.15s ease, width 0.15s ease;
+}
+
+.page-outline-tick:hover {
+  background: var(--text-dim);
+}
+
+.page-outline-tick-active {
+  width: 22px;
+  background: var(--accent);
+}
+
+/* The expanded panel — invisible by default (opacity:0+pointer-events:none, not display:none, which
+   wouldn't have a transition animation and would look jarring when toggled); fades in when hovering
+   over .page-outline-fab as a whole (either the ticks or any part of the panel). The user gave
+   feedback "the title appeared on hover but disappeared almost immediately" — the root cause was a
+   margin-right here that used to leave visual spacing: when the panel is hidden by default with
+   pointer-events:none, the moment the mouse hovers over the tick marks, the panel briefly fades in —
+   but the path moving toward the panel first has to cross this blank margin that "belongs to neither
+   the tick marks (.page-outline-ticks) nor the panel" — the instant the mouse leaves the tick marks'
+   own box, :hover fails immediately and pointer-events snaps back to none (this property doesn't
+   participate in the transition, it changes instantly), so the panel becomes unclickable before the
+   mouse has genuinely reached it, leaving only opacity still slowly fading out — which looks like "a
+   flash that's gone in an instant."
+   Fix: change margin-right to 0, so the panel sits flush against (the now-enlarged-padding)
+   .page-outline-ticks — there's no longer any blank space "belonging to neither" between the two
+   boxes, so the mouse's entire path from the tick marks to the panel stays inside one hoverable box or
+   another the whole way, never dropping out mid-path. */
+.page-outline-panel {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%) translateX(6px);
+  margin-right: 0;
+  min-width: 12rem;
+  max-width: 18rem;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  padding: 0.6rem;
+  opacity: 0;
+  pointer-events: none;
+  /* pointer-events is also put into the transition — one more layer of insurance: even if some edge
+     case (e.g. the mouse moving very fast, happening to skip over the flush boundary between two
+     frames) briefly drops out of the hover state, pointer-events only truly switches to none after a
+     0.1s delay, giving the mouse a little buffer time to land on the panel and re-trigger :hover,
+     rather than becoming unclickable the instant focus is lost. */
+  transition: opacity 0.15s ease, transform 0.15s ease, pointer-events 0s linear 0.1s;
+}
+
+.page-outline-fab:hover .page-outline-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+  transition: opacity 0.15s ease, transform 0.15s ease, pointer-events 0s;
+}
+
+.page-outline-panel-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+  padding: 0 0.4rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.4rem;
+}
+
+.page-outline-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.page-outline-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-left: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-outline-link:hover {
+  color: var(--text);
+  background: var(--panel-alt);
+}
+
+/* The section currently in view — an accent vertical bar on the left + bold, the same "left border
+   marks the current/selected item" visual language as .candidate-card.candidate-selected, rather than
+   inventing a separate emphasis style. */
+.page-outline-link-active {
+  color: var(--accent);
+  font-weight: 600;
+  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+/* On a narrow screen (the same breakpoint where .shell-details-panel degrades into a fullscreen mask),
+   the on-page nav easily overlaps with content, and the page is already shorter at that point, so the
+   nav's marginal value is lower — it's simply hidden, rather than working out a separate mobile
+   positioning scheme for it. */
+@media (max-width: 860px) {
+  .page-outline-fab {
+    display: none;
+  }
+}
+
+@media (max-width: 1100px) {
+  .shell-details-panel {
+    width: 18rem;
+    max-width: 42vw;
+  }
+}
+
+@media (max-width: 860px) {
+  .shell-sidebar {
+    display: none;
+  }
+  .shell-content {
+    padding: 1.25rem 1rem 3rem;
+  }
+  .shell-details-panel {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-width: none;
+    z-index: 20;
+  }
+}
+
+/* ==========================================================================
+   Login page — design/login.png, its own independent centered card layout, doesn't use AppShell
+   ========================================================================== */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  background: var(--bg);
+  position: relative;
+}
+
+.login-corner-actions {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.login-lang-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.75rem;
+}
+
+.login-brand .shell-logo-mark {
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+}
+
+.login-brand .shell-logo-mark svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.login-brand h1 {
+  font-size: 1.7rem;
+  margin: 0 0 0.3rem;
+}
+
+.login-brand p {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.9rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+}
+
+.login-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.login-card-sub {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  margin: 0 0 1.5rem;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.1rem;
+}
+
+.login-field-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.login-field label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.login-forgot {
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.login-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel-alt);
+  padding: 0.6rem 0.75rem;
+}
+
+.login-input-wrap svg {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.login-input-wrap input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font: inherit;
+  color: var(--text);
+  width: 100%;
+}
+
+.login-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-bottom: 1.4rem;
+}
+
+/* Login failure message — shown for a wrong username/password, or when the backend can't be reached
+   (a network problem), see the error state in LoginPage.tsx */
+.login-error {
+  margin: -0.6rem 0 1.1rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--block) 12%, var(--panel));
+  color: var(--block);
+  font-size: 0.82rem;
+}
+
+.login-submit {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--ink);
+  color: var(--ink-contrast);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-submit:hover {
+  opacity: 0.9;
+}
+
+.login-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-footer {
+  margin-top: 1.75rem;
+  display: flex;
+  gap: 0.9rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.login-footer span:not(:last-child)::after {
+  content: "·";
+  margin-left: 0.9rem;
+  color: var(--border);
+}
+
+/* ==========================================================================
+   Research Input page (LandingPage's new skin, used inside AppShell) — design/input.png
+   ========================================================================== */
+
+.input-page-header {
+  margin-bottom: 1.75rem;
+}
+
+.input-page-header h1 {
+  font-size: 1.9rem;
+  margin: 0 0 0.5rem;
+}
+
+.input-page-header p {
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+.input-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--ink);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+}
+
+.input-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.input-card-header-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.input-card-counter {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.input-card textarea {
+  width: 100%;
+  min-height: 220px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text);
+  background: transparent;
+}
+
+.input-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.9rem;
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Model/thinking-effort — see LandingPage.tsx: a row of small options on the left, the submit button
+   (.input-submit-btn) on the right; after changing .input-card-footer from flex-end to
+   space-between, the two naturally sit at opposite ends. */
+.input-card-options {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.input-card-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.input-card-option select {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.input-submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ink);
+  color: var(--ink-contrast);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.input-submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.input-ready-banner {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}
+
+.input-ready-banner strong {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+.input-ready-banner p {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.input-history-link {
+  display: inline-block;
+  margin-top: 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.input-history-link:hover {
+  color: var(--text);
+}
+
+/* ==========================================================================
+   Stepper — the 6-segment horizontal progress bar at the top of design/agent_run.png, replacing the
+   old .plan vertical list (PlanPanel.tsx's structure is unchanged, this just gives it a new skin: see
+   Stepper.tsx)
+   ========================================================================== */
+
+.stepper {
+  display: flex;
+  gap: 0.5rem;
+  padding-bottom: 0.9rem;
+  overflow-x: auto;
+}
+
+.stepper-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 128px;
+}
+
+/* The connecting line is no longer a <span> in the JSX (that squeezed dot+line into the same flex row,
+   and the line's flex:1 pushed the dot to the far left of the track, so the centered/full-row label
+   below no longer lined up with the dot — per user feedback "the text under the icon isn't centered
+   with the icon"). Now both the dot and label are centered via .stepper-item/.stepper-link's
+   align-items:center, and the connecting line is switched to this pseudo-element instead: drawn from
+   the current item's horizontal midpoint to the next item's horizontal midpoint (a width of 100%+gap,
+   where gap must match .stepper's gap below), drawn only on every item except the last. */
+.stepper-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 0.65rem;
+  left: 50%;
+  width: calc(100% + 0.5rem);
+  height: 1.5px;
+  background: var(--border);
+}
+
+/* A completed node wraps track+label in a <Link> (see Stepper.tsx) — .stepper-item's own flex layout
+   is meant for the "non-Link" case's two direct children (track/label); once wrapped in a Link, those
+   two become the Link's children instead, so the same flex layout is repeated on the Link itself here,
+   keeping it visually identical to an incomplete node, just now clickable. */
+.stepper-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.stepper-link:hover .stepper-label {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.stepper-link:hover .stepper-dot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent);
+}
+
+.stepper-track {
+  /* position:relative + z-index:1 reliably keeps the dot sitting on top of the ::after connecting
+     line above (the connecting line is a sibling layer with position:absolute, z-index:auto — auto
+     ranks lower than an explicit positive z-index in the stacking order, so there's no risk of the
+     line cutting through the middle of the dot); this isn't relying on DOM order to luckily cover it. */
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepper-dot {
+  flex-shrink: 0;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  border: 1.5px solid var(--border);
+  color: var(--text-dim);
+  background: var(--panel);
+}
+
+.stepper-label {
+  /* Single-line + ellipsis truncation inherently fights with a flex item's automatic minimum width
+     here, and testing confirmed two rounds of fixes didn't work: white-space:nowrap text has a
+     min-content width equal to the width of the entire line of text; the flex item (.stepper-item)
+     should be able to shrink under flex-basis:0% (flex:1 expansion), but the browser still refuses to
+     compress it narrower than this min-content (even with .stepper-item explicitly setting
+     min-width:128px, what won't compress is still the label's nowrap text) — so a long English label
+     ("LITERATURE RETRIEVAL & RESEARCH QUESTION") blows out .stepper-item's box and overlaps with the
+     text of the item to its right — not the kind of problem display:block can fix (that step was a
+     necessary but insufficient fix — not wrong in itself, just not enough).
+     The fix: instead of fighting for single-line truncation, let the label wrap — once nowrap is no
+     longer required, the text's min-content width becomes just "the longest single word" (e.g.
+     "CONTRIBUTION"), far smaller than the item's 128px width, so the flex item can naturally shrink
+     without blowing out the neighboring cell. It doesn't look worse after wrapping either: a Chinese
+     label is already short and stays on one line; a long English label becomes two lines, which is
+     actually better than truncating to "…" — the user can see the full step name without needing to
+     hover to find out what it says. */
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.stepper-item-done .stepper-dot {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+
+.stepper-item-done .stepper-label {
+  color: var(--text);
+}
+
+.stepper-item-running .stepper-dot {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stepper-item-running .stepper-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.stepper-item-needs_input .stepper-dot {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+.stepper-item-blocked .stepper-dot {
+  border-color: var(--block);
+  color: var(--block);
+}
+
+/* ==========================================================================
+   StepCard — the shell for each "Step N: ..." card in design/agent_run.png, wrapping a unified
+   title/status/collapsible-thinking-process/action-button row; the internal content slot reuses each
+   step's existing ResultSummary/TranscriptView etc. components, without reimplementing content
+   display logic (see StepCard.tsx)
+   ========================================================================== */
+
+.step-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+}
+
+.step-card-pending {
+  opacity: 0.5;
+}
+
+.step-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.step-card-status-icon {
+  flex-shrink: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  background: var(--panel-alt);
+  color: var(--text-dim);
+  border: 1.5px solid var(--border);
+}
+
+.step-card-status-done {
+  background: color-mix(in srgb, var(--ok) 15%, var(--panel));
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.step-card-status-running {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.step-card-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.step-card-body {
+  padding: 1.1rem 1.25rem;
+}
+
+.step-card-actions {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0 1.25rem 1.25rem;
+  flex-wrap: wrap;
+}
+
+.step-card-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.83rem;
+  cursor: pointer;
+}
+
+.step-card-action-btn:hover {
+  border-color: var(--text-dim);
+}
+
+.step-card-action-primary {
+  background: var(--ink);
+  color: var(--ink-contrast);
+  border-color: var(--ink);
+}
+
+.step-card-action-primary:hover {
+  opacity: 0.9;
+}
+
+.step-card-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.step-card-approved-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--ok) 12%, var(--panel));
+  color: var(--ok);
+  font-size: 0.83rem;
+  font-weight: 600;
+}

@@ -1,0 +1,30 @@
+# Runtime artifacts
+atba/runs/
+runs/
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets — never commit
+.env
+.env.local
+atba/.env
+atba/.env.local
+frontend/.env
+frontend/.env.local
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+# npm run build:demo's raw output dir — the repo tracks only the resulting demo.html at the
+# repo root (copied over manually after a build), not this whole folder.
+frontend/dist-demo/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local process logs/pid files from the deploy scripts
+atba_uvicorn.out.log
+atba_uvicorn.err.log
+atba_uvicorn.pid

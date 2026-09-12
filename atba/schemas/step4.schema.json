@@ -1,0 +1,368 @@
+{
+  "name": "report_step4_output",
+  "description": "Report step 4's final result: the deep-retrieval result on the anchor theoretical direction run before candidate generation (theoretical_grounding, including key literature, known boundary conditions, internal tensions), 3-5 mutually exclusive candidate theories (candidates, each with the five theory elements theory_elements and four-virtue scores virtue_scores), the final ranking computed by propagating the four-virtue scores (ranked_candidate_names), the selected candidate (selected_candidate_name, with any tied candidates whose ranking is ambiguous listed together in tied_candidate_names for step 5 to adjudicate), and the selection rationale. Scope has been narrowed at the user's request: no construct-novelty check, no Lakatos hard-core/protective-belt judgment; but retrieval itself has been wired back to D.4's retrieval tool for a different purpose (working out the theory's current state before candidate generation, rather than checking after candidate generation whether the candidate already exists — see the module-level comments on TheoreticalGroundingRecord/CandidateTheory in atba/schemas.py) — whether a candidate overlaps with existing literature is still left to step 5's relabeling_suspicion follow-up to handle.",
+  "input_schema": {
+    "$defs": {
+      "CandidateTheory": {
+        "description": "A single candidate theory generated in step 4 — the 3-5 candidates must be **mutually\nexclusive**: if any one candidate holds, it rules out the others holding, rather than each\n\"explaining part of the phenomenon\" (that's complementary, not the mutually exclusive candidate set\nthis step requires).\n\n**Contains no construct-novelty check / Lakatos hard-core-protective-belt judgment** — these two\nwere once part of the design (added when absorbing a methodology discussion, see git history\n`4bd44e6`), but the user explicitly asked to narrow step 4's focus to the theoretical contribution\nitself: generate candidates, give the explanation, score and rank on the four virtues, no Lakatos\njudgment. Whether a candidate overlaps with existing literature, and whether its degree of\nrefinement counts as \"progressive,\" is left to step 5's interrogation to handle — **step 5's\nrelabeling_suspicion follow-up is therefore the only place left in the whole pipeline that still\nuses retrieval to verify \"is this just an existing construct wearing a new label,\"** not a\ndispensable duplicate check, see the top-of-file docstring in atba/step5.py.\n\n**Retrieval has been wired back into step 4** (for a purpose opposite to the historically-removed\nnovelty_check, see the module-level comment on the Step 4 section): candidate generation must be\ngrounded in `MechanismGroundingRecord.donor_findings` (for cross-tradition/adjacent-tradition\nborrowing) or `anchor_theory_grounding.key_findings` (for digging within the same tradition, from\nstep 3) — the specific construct named by `borrowed_or_modified_construct`/\n`why_existing_insufficient` must find corresponding literature support in the relevant findings,\nand cannot be freely improvised from a background impression drawn from training knowledge — this\nis Whetten's (1989) basic requirement to \"reflect a broad, current understanding of the\nsubject.",
+        "properties": {
+          "candidate_name": {
+            "description": "A short name for the candidate theory, used to refer to it in ranking/citations/step 5's interrogation",
+            "title": "Candidate Name",
+            "type": "string"
+          },
+          "is_baseline": {
+            "default": false,
+            "description": "Whether this is the null-hypothesis baseline candidate — the anchor theory applied directly with no borrowing/modification, used to test whether the other candidates are actually better than 'changing nothing' (echoing Choudhury, Moeen & Wormald's (2026) discussion of the 'strict IBE' path — drawing candidates only from existing theory's existing explanations, without constructing anything new — ATBA's other candidates by default all take the 'loose' route, and had never actually been compared against the null hypothesis that 'existing theory is already good enough'; this candidate fills that gap). If True: mechanism_borrowing_pattern must be within_tradition, disanalogy_note must be left blank, borrowed_or_modified_construct/why_existing_insufficient may be filled with explanatory text like '(none — this is the null-hypothesis baseline, applying the anchor theory's original construct as-is, with no modification)' and need not point to newly retrieved literature. Exactly one candidate in the candidates list must have is_baseline=True, the rest False.",
+            "title": "Is Baseline",
+            "type": "boolean"
+          },
+          "theory_elements": {
+            "$ref": "#/$defs/TheoryElements"
+          },
+          "mechanism_borrowing_pattern": {
+            "$ref": "#/$defs/MechanismBorrowingPattern",
+            "description": "Which path this candidate's mechanism comes from — digging within the same tradition (within_tradition) / connecting an adjacent tradition (adjacent_bridging) / borrowing a cross-tradition external theoretical vocabulary (cross_tradition_borrowing). Don't default to cross_tradition_borrowing just to 'seem creative' — fill in whichever this candidate's mechanism actually comes from, per the material actually retrieved in MechanismGroundingRecord/anchor_theory_grounding."
+          },
+          "disanalogy_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Required when mechanism_borrowing_pattern=cross_tradition_borrowing: where this borrowed mechanism **doesn't carry over** in the new setting, and what adjustment/tradeoff was made to make it fit — cannot only present the parts where the borrowing 'succeeds.' Echoes Oswick, Fleming & Hanlon's (2011) critique of 'domesticated borrowing' (a superficial borrowing that files off the rough edges): genuine theoretical breakthroughs often happen right at this 'doesn't carry over' point, rather than in the borrowing itself; left blank for the other two patterns.",
+            "title": "Disanalogy Note"
+          },
+          "borrowed_or_modified_construct": {
+            "description": "Which existing construct was borrowed/modified — must name a specific construct/theory, not a vague reference to 'existing theory,' and must find corresponding specific literature support in MechanismGroundingRecord.donor_findings (cross-tradition/adjacent borrowing) or anchor_theory_grounding.key_findings (digging within the same tradition), and cannot fill in details missing here from a background impression drawn from training knowledge. When mentioning a specific paper, use standard APA author-year format (e.g. '(Zhao et al., 2017)'), not the informal 'journal abbreviation + year + topic tag' style",
+            "title": "Borrowed Or Modified Construct",
+            "type": "string"
+          },
+          "why_existing_insufficient": {
+            "description": "Why the existing construct itself isn't sufficient to cover the research question step 3 identified — can't just say 'nobody has studied this.' Same as above, cite specific papers in standard APA author-year format",
+            "title": "Why Existing Insufficient",
+            "type": "string"
+          },
+          "explanation_of_phenomenon": {
+            "description": "The full argument using this set of theory elements to specifically explain step 1's phenomenon/step 3's research question",
+            "title": "Explanation Of Phenomenon",
+            "type": "string"
+          },
+          "mutual_exclusivity_note": {
+            "description": "Why, if this candidate holds, it rules out the other candidates holding — a mutual-exclusivity self-check; wording should point toward 'ruling out' rather than 'can also explain part of it,' a complementary framing that signals a problem with the candidate set's design",
+            "title": "Mutual Exclusivity Note",
+            "type": "string"
+          },
+          "virtue_scores": {
+            "$ref": "#/$defs/VirtueScores"
+          }
+        },
+        "required": [
+          "candidate_name",
+          "theory_elements",
+          "mechanism_borrowing_pattern",
+          "borrowed_or_modified_construct",
+          "why_existing_insufficient",
+          "explanation_of_phenomenon",
+          "mutual_exclusivity_note",
+          "virtue_scores"
+        ],
+        "title": "CandidateTheory",
+        "type": "object"
+      },
+      "CitedEvidence": {
+        "description": "The specific literature evidence a research-question statement cites — not a paraphrase, it must\nbe traceable back to a real retrieval result (echoing appendix B's \"a research-question statement\nmust come with a traceable citation\"). The Scopus API doesn't return full text, so citations can\nonly reach the abstract/metadata level — an inherent limitation of D.4's retrieval channel, not an\nextraction oversight in this project.",
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "authors": {
+            "description": "The author list — must not be left as a placeholder. The two sources differ in completeness; prefer the more complete one: under this key's entitlement, search_scopus only returns the first author. get_paper_abstract internally goes through Semantic Scholar/OpenAlex, which return a full author list along the way (this tool must be called before deciding to cite anyway to look up the abstract, and the author list comes back in the same call, no extra call needed). Approach: stash search_scopus's (first-author) value first, then replace it with the more complete version once get_paper_abstract returns non-empty authors; only fall back to search_scopus's first author if neither source finds any authors — never leave it blank. Even when get_paper_abstract doesn't find an abstract, its authors should still be used if non-empty — the abstract and the authors are two independent things.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Authors",
+            "type": "array"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Doi"
+          },
+          "source_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The journal name",
+            "title": "Source Title"
+          },
+          "relevant_snippet": {
+            "description": "The specific excerpt or point from the abstract/metadata that supports the judgment — must not be just the paper's title",
+            "title": "Relevant Snippet",
+            "type": "string"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The raw full abstract text obtained by calling the get_paper_abstract tool, copied verbatim, not rewritten/condensed — relevant_snippet is your own excerpt supporting the judgment, while abstract is the raw material a reviewer can use to independently verify whether relevant_snippet takes something out of context or over-interprets — the two must not be the same text, each serving its own purpose. If get_paper_abstract returns an empty abstract (Scopus itself doesn't have an abstract for this paper), honestly leave it blank, don't fabricate one.",
+            "title": "Abstract"
+          }
+        },
+        "required": [
+          "title",
+          "relevant_snippet"
+        ],
+        "title": "CitedEvidence",
+        "type": "object"
+      },
+      "MechanismBorrowingPattern": {
+        "description": "A classification of where a candidate theory's mechanism comes from — doesn't enforce \"must step\noutside the anchor theory,\" instead requiring an explicit statement of which path was taken,\nechoing Oswick, Fleming & Hanlon's (2011) \"From Borrowing to Blending\" caution against one-way\nborrowing, and this project's own empirical check across three retrodiction-validation cases\n(choi_kim_2026/guerra_agarwal_2026/weiss_radoynovska_2026): real high-quality theory-building\nexhibits all three modes — \"cross-tradition borrowing\" is not the only legitimate path.",
+        "enum": [
+          "within_tradition",
+          "adjacent_bridging",
+          "cross_tradition_borrowing"
+        ],
+        "title": "MechanismBorrowingPattern",
+        "type": "string"
+      },
+      "MechanismGroundingRecord": {
+        "description": "The output of step 4's sub-step 0 (before candidate generation) — **replacing the\nTheoreticalGroundingRecord that moved to step 3 this round**, with a completely different retrieval\npurpose: not continuing to dig into the anchor theory (that's now step 3's job, see\nTheoreticalGroundingRecord's module-level comment), but \"stepping outside\" the anchor theory to\nretrieve other mechanisms/theories that can explain this gap.\n\nThe retrieval anchor is `abstract_mechanism_pattern` (one sentence naming no theory, describing only\nthe causal structure itself, e.g. \"the gap between expectation and reality driving escalation,\" \"\ninterdependence among heterogeneous actors' activities driving differentiation\"), not a theory's\nname — this is the problem this round's design deliberately set out to solve: if the query anchors\non the anchor theory's name, whatever it retrieves will naturally just be literature from within the\nsame theoretical tradition, nowhere close to \"stepping outside.\" Abstracting the causal structure\nbeing sought first, then retrieving with that abstract description, is the only way to hit\nliterature that's structurally similar but from a completely unrelated domain (Gentner's 1983\nstructure-mapping theory: analogy is drawn on relational structure, not surface similarity). This\nabstract description is distilled by the agent itself from\n`anchor_theory_grounding.internal_tensions_or_gaps` (the specific aspect step 3 has already worked\nout that the anchor theory can't explain on its own), not invented out of thin air.",
+        "properties": {
+          "abstract_mechanism_pattern": {
+            "description": "A one-sentence causal-structure description naming no theory/discipline — describing 'what kind of mechanism is needed to explain this gap,' for later retrieval to anchor on. Counter-example: 'resource dependence theory' (names a theory); good example: 'resource-acquisition pressure driving strategic escalation' (describes only the structure).",
+            "title": "Abstract Mechanism Pattern",
+            "type": "string"
+          },
+          "queries_tried": {
+            "description": "Every search query actually used with search_scopus around abstract_mechanism_pattern, in the order tried",
+            "items": {
+              "type": "string"
+            },
+            "title": "Queries Tried",
+            "type": "array"
+          },
+          "donor_findings": {
+            "description": "Literature retrieved that might offer a borrowable mechanism (not required to all come from the same theoretical tradition) — a candidate theory's borrowed_or_modified_construct must find corresponding literature support here, and cannot fill in details missing here from a background impression drawn from training knowledge. If exhaustive retrieval genuinely can't find a suitable external mechanism and the candidate takes the within_tradition path (its mechanism comes from anchor_theory_grounding rather than here), leaving this empty is allowed, but rationale must state that a search was genuinely attempted and no suitable external mechanism was found, not that no search happened.",
+            "items": {
+              "$ref": "#/$defs/CitedEvidence"
+            },
+            "title": "Donor Findings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "abstract_mechanism_pattern"
+        ],
+        "title": "MechanismGroundingRecord",
+        "type": "object"
+      },
+      "PairwiseComparison": {
+        "description": "One pairwise comparison between candidates — the actual basis for the ranking (see the module-\nlevel comment on the Step 4 section, \"the ranking mechanism changed this round from ...\"). Requires\none record to be produced for every C(n,2) combination among `candidates` (3 candidates = 3\nrecords, 5 candidates = 10 records); atba/step4.py's output_validator verifies this, and incomplete\ncoverage gets sent back with a ModelRetry.",
+        "properties": {
+          "candidate_a": {
+            "description": "One of the two candidates being compared, its candidate_name",
+            "title": "Candidate A",
+            "type": "string"
+          },
+          "candidate_b": {
+            "description": "The other candidate being compared, its candidate_name, must differ from candidate_a",
+            "title": "Candidate B",
+            "type": "string"
+          },
+          "winner": {
+            "description": "The stronger candidate of this pair — must be filled with either candidate_a's or candidate_b's exact text, or 'tie' (when it's genuinely a toss-up — don't force a pick just to 'look decisive')",
+            "title": "Winner",
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Why winner is stronger (or why it's a tie) — based on a relative comparison of the four virtues, same requirement as VirtueScores.graph_based_rationale: show genuine relative argumentation, not a hollow 'A is better because A is more persuasive'",
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_a",
+          "candidate_b",
+          "winner",
+          "rationale"
+        ],
+        "title": "PairwiseComparison",
+        "type": "object"
+      },
+      "TheoryElements": {
+        "description": "The five theory elements — the schema defined in the technical appendix: `{What: {X, Y}, How,\nWhy, Assumption, boundary conditions}`, the data source for step 6's \"theory relationship diagram\"\nand \"hypothesis formalization,\" though the content itself is produced in step 4 (\"step 4's output\n(X/Y/M/A/BC) is already the complete set of theory elements needed for hypothesis formalization\" —\n03_学术式研究提案.md). Step 6 only translates this content into H1/H2-style hypothesis statements,\nwithout redoing the abductive reasoning, so this class is defined only once here for step 6 to reuse\ndirectly, rather than being redefined a second time and drifting apart.",
+        "properties": {
+          "x": {
+            "description": "The independent/antecedent construct (one of the What's) — must be an abstract construct, not the phenomenon itself or a specific empirical result already observed",
+            "title": "X",
+            "type": "string"
+          },
+          "y": {
+            "description": "The dependent/outcome construct (the other What) — likewise must be an abstract construct, not the phenomenon itself",
+            "title": "Y",
+            "type": "string"
+          },
+          "relation_form": {
+            "description": "The form of the relationship between X and Y (the How): linear/interactive/nonlinear etc., specific enough to guide later hypothesis formalization",
+            "title": "Relation Form",
+            "type": "string"
+          },
+          "mechanism": {
+            "description": "The causal mechanism underlying why that relationship holds (the Why) — this is where the candidate theory's real novelty lies, it can't just restate X→Y",
+            "title": "Mechanism",
+            "type": "string"
+          },
+          "assumption": {
+            "description": "The premise the relationship depends on holding (the Assumption) — cannot be omitted, must be stated explicitly even if it looks 'obvious'",
+            "title": "Assumption",
+            "type": "string"
+          },
+          "boundary_conditions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Boundary conditions {When, Where, Who} — not a required field, filled in only when the research explicitly targets a specific scope of applicability",
+            "title": "Boundary Conditions"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "relation_form",
+          "mechanism",
+          "assumption"
+        ],
+        "title": "TheoryElements",
+        "type": "object"
+      },
+      "VirtueScores": {
+        "description": "The four-virtue scoring — the explanatory virtues: consilience/coherence/parsimony/precision.\nThe technical appendix stresses that the ranking is \"computed by propagation through the relation\ngraph,\" not four independently scored numbers — this still requires four scalar values (for\nranking/frontend display), but forces a graph_based_rationale paragraph alongside them, making the\nmodel explain how this score was derived from the candidate-evidence and candidate-candidate\n(explain/contradict/analogy) relationships, rather than scoring by intuition and tacking on an empty\nsentence afterward. A 1-5 integer scale, 5 being strongest.\n\n**These four are not the same kind of judgment** (in Choudhury, Moeen & Wormald's 2026 terms):\nconsilience/coherence/parsimony assess the logical/aesthetic quality of the explanation itself (that\npaper calls this \"lovely,\" unrelated to whether it fits real evidence — an explanation never tested\ncan still be very lovely); precision is the only one of the four that assesses \"how well this\nexplanation's claims/predictions fit the phenomenon's and the evidence's specific details,\" closer\nto what that paper calls the evidential virtue \"likely.\" When doing a pairwise comparison\n(PairwiseComparison), these two different kinds of judgment must not be conflated — \"more lovely\"\n(e.g. more parsimonious) does not equal \"more likely\" (e.g. fitting the specific observed pattern\nbetter); a candidate can perfectly well be lovely but not likely, or the reverse.",
+        "properties": {
+          "consilience": {
+            "description": "Breadth of unification (lovely): how much existing evidence/related phenomena this candidate can simultaneously explain",
+            "maximum": 5,
+            "minimum": 1,
+            "title": "Consilience",
+            "type": "integer"
+          },
+          "coherence": {
+            "description": "Internal consistency (lovely): whether the candidate theory's X/Y/mechanism/assumption are self-consistent, not self-contradictory",
+            "maximum": 5,
+            "minimum": 1,
+            "title": "Coherence",
+            "type": "integer"
+          },
+          "parsimony": {
+            "description": "Parsimony (lovely): whether the number of theoretical elements/assumptions needed for the same explanatory power is minimal",
+            "maximum": 5,
+            "minimum": 1,
+            "title": "Parsimony",
+            "type": "integer"
+          },
+          "precision": {
+            "description": "Precision (likely, the only evidential virtue of the four): how well the claim/prediction fits the specific details (rather than the general direction) of the phenomenon card/research question description — for instance whether the phenomenon takes the specific shape of 'rising then falling' versus 'falling then rising,' and whether the candidate's relation_form/mechanism precisely predicts that specific shape rather than vaguely claiming 'a nonlinear relationship.' Judged separately from the first three — don't give precision a high score just because a candidate happens to be parsimonious/consilient.",
+            "maximum": 5,
+            "minimum": 1,
+            "title": "Precision",
+            "type": "integer"
+          },
+          "graph_based_rationale": {
+            "description": "How these four scores were derived by propagation through the candidate-evidence and candidate-candidate relationship graph — must show the reasoning behind relative comparisons like 'why more/less consilient, parsimonious ... than the other candidate,' not four isolated, hollow justifications for four isolated numbers",
+            "title": "Graph Based Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "consilience",
+          "coherence",
+          "parsimony",
+          "precision",
+          "graph_based_rationale"
+        ],
+        "title": "VirtueScores",
+        "type": "object"
+      }
+    },
+    "description": "The complete structured result step 4's single agent run requires the model to produce — the\nfinal snapshot of what the five sub-steps produced.",
+    "properties": {
+      "mechanism_grounding": {
+        "$ref": "#/$defs/MechanismGroundingRecord",
+        "description": "The output of sub-step 0: before candidate generation, stepping outside the anchor theory to retrieve other mechanisms that can explain this gap. A revision round (round_number>1) should directly reuse the record already produced in the previous round, without needing to retrieve again, unless step 5's interrogation feedback explicitly points to 'a missed mechanism direction needs to be added'"
+      },
+      "candidates": {
+        "description": "3-5 mutually exclusive candidate theories, in generation order. Exactly one of them must be the null-hypothesis baseline candidate with is_baseline=True (see CandidateTheory.is_baseline); across the remaining candidates' mechanism_borrowing_pattern: with 3-4 candidates, at least 2 types must be covered; with 5 candidates, all 3 types must be covered — they cannot all crowd onto the same path.",
+        "items": {
+          "$ref": "#/$defs/CandidateTheory"
+        },
+        "maxItems": 5,
+        "minItems": 3,
+        "title": "Candidates",
+        "type": "array"
+      },
+      "pairwise_comparisons": {
+        "description": "The pairwise comparison judgments among candidates, must cover every C(n,2) combination — the ranking is computed from these judgments (see atba/step4.py), not asserted directly by you, so the quality of the judgments given here directly determines how accurate the ranking is",
+        "items": {
+          "$ref": "#/$defs/PairwiseComparison"
+        },
+        "title": "Pairwise Comparisons",
+        "type": "array"
+      },
+      "selection_rationale": {
+        "description": "Combining the pairwise comparison results, why the top-ranked candidate was ultimately selected (if there's a tie, explain where the tie is and why it's hard to break)",
+        "title": "Selection Rationale",
+        "type": "string"
+      }
+    },
+    "required": [
+      "mechanism_grounding",
+      "candidates",
+      "pairwise_comparisons",
+      "selection_rationale"
+    ],
+    "title": "Step4Output",
+    "type": "object"
+  }
+}

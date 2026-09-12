@@ -1,0 +1,22 @@
+/* Minimal reset: the index.css that ships with Vite's react-ts template is meant for a landing page
+   (centered, fixed width, double side borders), which conflicts with this console app's layout — this
+   is trimmed down to a base reset with no theme variables and no layout constraints. The actual
+   colors/spacing/layout are provided by App.css. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

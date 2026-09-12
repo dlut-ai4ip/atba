@@ -1,0 +1,46 @@
+{
+  "name": "report_step2_output",
+  "description": "Report the list of candidate theoretical directions matched in step 2 (candidate_theory_directions, each with theory_name and relevance_rationale), used to scope step 3's retrieval; does not judge whether a gap exists, does not require already-traceable literature.",
+  "input_schema": {
+    "$defs": {
+      "CandidateTheoryDirection": {
+        "description": "A single candidate theoretical direction produced by step 2. Only scopes \"which direction to\nlook in,\" without judging whether a gap exists or requiring already-traceable literature — that's\nstep 3's job.",
+        "properties": {
+          "theory_name": {
+            "description": "The theory/theoretical-tradition name",
+            "title": "Theory Name",
+            "type": "string"
+          },
+          "relevance_rationale": {
+            "description": "A preliminary explanation of why this direction might be relevant to the phenomenon — must point to which specific part of the phenomenon it corresponds to, not just name the theory",
+            "title": "Relevance Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "theory_name",
+          "relevance_rationale"
+        ],
+        "title": "CandidateTheoryDirection",
+        "type": "object"
+      }
+    },
+    "description": "The complete structured result step 2's single agent run requires the model to produce: a set of\ncandidate theoretical directions.\n\nMuch simpler than step 1 — a single judgment, with no verification loop needing automatic in-run\nretries like the theory-jargon check. min_length=2: doesn't accept turning in just one \"most\nlikely\" direction — step 2's value lies precisely in not narrowing to a single direction too early,\nletting step 3's retrieval results test which direction actually holds up on their own.",
+    "properties": {
+      "candidate_theory_directions": {
+        "description": "Does not require a single answer — produce several potentially-relevant theoretical directions for step 3 to retrieve and verify one by one",
+        "items": {
+          "$ref": "#/$defs/CandidateTheoryDirection"
+        },
+        "minItems": 2,
+        "title": "Candidate Theory Directions",
+        "type": "array"
+      }
+    },
+    "required": [
+      "candidate_theory_directions"
+    ],
+    "title": "Step2Output",
+    "type": "object"
+  }
+}

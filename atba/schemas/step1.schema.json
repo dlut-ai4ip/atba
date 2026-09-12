@@ -1,0 +1,193 @@
+{
+  "name": "report_step1_output",
+  "description": "Report the structured result of step 1's four independent judgments in one shot, four parallel fields: prior_expectation_identification (is there enough information to proceed) + causal_presupposition_check (checks the raw input text) + theory_jargon_check (checks the phenomenon_deconstruction field) + phenomenon_deconstruction. The phenomenon_deconstruction field is isomorphic with the \"phenomenon_deconstruction\" sub-schema described in the technical appendix's appendix C' retrodiction-extraction schema (same English field names, though the value content is still the original text extracted from the paper).",
+  "input_schema": {
+    "$defs": {
+      "CausalPresuppositionCheck": {
+        "description": "The causal-presupposition checker's output (checks the raw input text, not the phenomenon\ndeconstruction result).\n\nA hit no longer blocks the pipeline (an earlier version escalated to human review on a hit and\nrequired the user to rewrite the input — too heavy-handed, and it penalized the entirely normal\ncase of \"the user already brought their own guess/hypothesis\"). On a hit, the user's proposed\ncausal explanation is additionally extracted cleanly (`extracted_explanation`); the phenomenon\ndeconstruction itself still keeps only pure observational content, without mixing in this\nexplanation. `extracted_explanation` is left for step 4's candidate generation to reference as\n\"one candidate guess the user already brought,\" not adopted directly as a conclusion, nor treated\nas something the pipeline has endorsed.",
+        "properties": {
+          "hit": {
+            "title": "Hit",
+            "type": "boolean"
+          },
+          "evidence_snippets": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Snippets",
+            "type": "array"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "extracted_explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "When hit=true: cleanly extract/paraphrase the user's proposed causal explanation, for later steps to reference; empty when there's no hit",
+            "title": "Extracted Explanation"
+          }
+        },
+        "required": [
+          "hit",
+          "evidence_snippets",
+          "rationale"
+        ],
+        "title": "CausalPresuppositionCheck",
+        "type": "object"
+      },
+      "PhenomenonDeconstruction": {
+        "description": "The phenomenon-deconstruction output schema: {actor, observed_behavior, field_constraints,\napparent_motive, observable_outcome}.\n\nThe theory-jargon check is no longer nested inside this — it's essentially the same kind of thing\nas the causal-presupposition check (a hit + evidence/terms + rationale check result), so it's been\nlifted to the top level of Step1Output, keeping the four check blocks\n(prior_expectation_identification/causal_presupposition_check/theory_jargon_check/\nphenomenon_deconstruction) at the same nesting level, structurally symmetric.\n\nField names are kept isomorphic with the \"phenomenon_deconstruction\" sub-schema described in the\ntechnical appendix's appendix C' retrodiction-extraction schema, without renaming to accommodate\npurely statistical/non-behavioral phenomena. Instead, adapted in two ways:\n(1) \"actor\"/\"observed_behavior\" are loosened in the prompt to mean \"the unit of analysis/entity\n    involved\" and \"the observed phenomenon/pattern,\" without requiring an anthropomorphized\n    \"behavior\";\n(2) \"apparent_motive\" is made optional — a purely statistical finding (e.g. a correlation between\n    macro variables) often has no attributable behavioral motive; the field is allowed to be left\n    blank rather than forcing the model to invent a motive that doesn't exist.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "observed_behavior": {
+            "title": "Observed Behavior",
+            "type": "string"
+          },
+          "field_constraints": {
+            "title": "Field Constraints",
+            "type": "string"
+          },
+          "apparent_motive": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The apparent motive of the party involved; if the phenomenon has no attributable behavioral actor (e.g. a purely statistical/macro-level finding), leave blank rather than inventing one",
+            "title": "Apparent Motive"
+          },
+          "observable_outcome": {
+            "title": "Observable Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "observed_behavior",
+          "field_constraints",
+          "observable_outcome"
+        ],
+        "title": "PhenomenonDeconstruction",
+        "type": "object"
+      },
+      "PriorExpectationIdentification": {
+        "description": "Prior-expectation identification: the agent judges for itself, from the input text (+ an\noptional user hint), whether \"this phenomenon has a comparable prior expectation/theoretical\ntradition,\" rather than requiring the caller to manually confirm this before calling.\n\nNote this is not the real retrieval envisioned by D.4 — this version has no retrieval service\nwired up here; \"identified=true\" only means the agent, from the input information and its own\nknowledge, can give a reasonable description of a prior expectation — it does not constitute the\nvalidity guarantee step 3's \"research question\" requires, which must be traceable to actual\nliterature; step 3's retrieval requirement is unaffected by \"identified=true\" here, and still\nindependently runs its own full process. This step only avoids making the user manually confirm\nwith a checkbox before proceeding when the information is already sufficient.",
+        "properties": {
+          "identified": {
+            "title": "Identified",
+            "type": "boolean"
+          },
+          "prior_expectation_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "When identified=true: what the agent believes the prior expectation/theoretical tradition is",
+            "title": "Prior Expectation Description"
+          },
+          "clarifying_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "When identified=false: the specific clarifying question to ask the user",
+            "title": "Clarifying Question"
+          },
+          "candidate_options": {
+            "description": "When identified=false: candidate directions offered for the user to choose from (the user may also skip these and type freely)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidate Options",
+            "type": "array"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identified",
+          "rationale"
+        ],
+        "title": "PriorExpectationIdentification",
+        "type": "object"
+      },
+      "TheoryJargonCheck": {
+        "description": "The theory-jargon checker's output (checks the phenomenon_deconstruction field in the same\noutput — the two are sibling fields at the same level of Step1Output; semantically the jargon check\ndepends on the deconstruction's content to check against, but structurally it isn't nested inside\nit).",
+        "properties": {
+          "hit": {
+            "title": "Hit",
+            "type": "boolean"
+          },
+          "flagged_terms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Flagged Terms",
+            "type": "array"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hit",
+          "flagged_terms",
+          "rationale"
+        ],
+        "title": "TheoryJargonCheck",
+        "type": "object"
+      }
+    },
+    "description": "The complete structured result step 1's single agent run requires the model to produce in one\nshot.\n\nFollowing the design \"one agent loop per stage, completed within that loop,\" four independent\nchecks/judgments are merged into the same output object of a single call, with the four fields kept\nat the same nesting level, not containing one another:\n- prior_expectation_identification: whether there's enough information to move to the next step\n- causal_presupposition_check: whether the raw input text already carries a causal explanation\n- theory_jargon_check: whether the phenomenon-deconstruction field has theoretical jargon mixed in\n  (checks the phenomenon_deconstruction field below — semantically dependent on it, but still a\n  sibling field structurally)\n- phenomenon_deconstruction: the five extracted purely-observational fields",
+    "properties": {
+      "prior_expectation_identification": {
+        "$ref": "#/$defs/PriorExpectationIdentification"
+      },
+      "causal_presupposition_check": {
+        "$ref": "#/$defs/CausalPresuppositionCheck"
+      },
+      "theory_jargon_check": {
+        "$ref": "#/$defs/TheoryJargonCheck"
+      },
+      "phenomenon_deconstruction": {
+        "$ref": "#/$defs/PhenomenonDeconstruction"
+      }
+    },
+    "required": [
+      "prior_expectation_identification",
+      "causal_presupposition_check",
+      "theory_jargon_check",
+      "phenomenon_deconstruction"
+    ],
+    "title": "Step1Output",
+    "type": "object"
+  }
+}

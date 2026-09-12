@@ -1,0 +1,219 @@
+{
+  "name": "report_step5_output",
+  "description": "Report step 5's final result: the interrogation record across the three follow-up types — falsifiability/boundary conditions/relabeling suspicion — against the candidate theory under interrogation (exchanges), an honestly-listed record of unresolved weaknesses (unanswered_weaknesses), the overall verdict (overall_verdict: withstands/weak/fails), and, when the verdict is fails, the specific revision instruction sent back to step 4 (loop_back_instruction). Step 5's agent is **deliberately not told** how the candidate theory was generated/scored/selected by step 4 — it's given only the candidate theory's own object-level content, see atba/step5.py's _task_text and the module-level comment on the \"Step 5\" section in atba/schemas.py. The relabeling-suspicion question's independent retrieval verification likewise calls the search_scopus/get_paper_abstract tools; the retrieval strategy is in atba/prompts/retrieval_skill.md.",
+  "input_schema": {
+    "$defs": {
+      "CandidateElementField": {
+        "description": "The specific field step 5 pinpoints when sending things back for revision — see the module-level\ncomment on Step5Output.loop_back_target_field. Defined here (rather than in the Step 5 section)\nbecause Step4Result.revision_target_field also needs it, and Step 4's schema is defined earlier in\nthis file than Step 5's, avoiding a forward reference. The values correspond to\nCandidateTheory/TheoryElements' field names; WHOLE_CANDIDATE is the special case of \"the whole\ncandidate needs to be rewritten,\" not corresponding to any specific field.",
+        "enum": [
+          "x",
+          "y",
+          "relation_form",
+          "mechanism",
+          "assumption",
+          "boundary_conditions",
+          "mechanism_borrowing_pattern",
+          "disanalogy_note",
+          "borrowed_or_modified_construct",
+          "why_existing_insufficient",
+          "explanation_of_phenomenon",
+          "whole_candidate"
+        ],
+        "title": "CandidateElementField",
+        "type": "string"
+      },
+      "CitedEvidence": {
+        "description": "The specific literature evidence a research-question statement cites — not a paraphrase, it must\nbe traceable back to a real retrieval result (echoing appendix B's \"a research-question statement\nmust come with a traceable citation\"). The Scopus API doesn't return full text, so citations can\nonly reach the abstract/metadata level — an inherent limitation of D.4's retrieval channel, not an\nextraction oversight in this project.",
+        "properties": {
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "authors": {
+            "description": "The author list — must not be left as a placeholder. The two sources differ in completeness; prefer the more complete one: under this key's entitlement, search_scopus only returns the first author. get_paper_abstract internally goes through Semantic Scholar/OpenAlex, which return a full author list along the way (this tool must be called before deciding to cite anyway to look up the abstract, and the author list comes back in the same call, no extra call needed). Approach: stash search_scopus's (first-author) value first, then replace it with the more complete version once get_paper_abstract returns non-empty authors; only fall back to search_scopus's first author if neither source finds any authors — never leave it blank. Even when get_paper_abstract doesn't find an abstract, its authors should still be used if non-empty — the abstract and the authors are two independent things.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Authors",
+            "type": "array"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Year"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Doi"
+          },
+          "source_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The journal name",
+            "title": "Source Title"
+          },
+          "relevant_snippet": {
+            "description": "The specific excerpt or point from the abstract/metadata that supports the judgment — must not be just the paper's title",
+            "title": "Relevant Snippet",
+            "type": "string"
+          },
+          "abstract": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "The raw full abstract text obtained by calling the get_paper_abstract tool, copied verbatim, not rewritten/condensed — relevant_snippet is your own excerpt supporting the judgment, while abstract is the raw material a reviewer can use to independently verify whether relevant_snippet takes something out of context or over-interprets — the two must not be the same text, each serving its own purpose. If get_paper_abstract returns an empty abstract (Scopus itself doesn't have an abstract for this paper), honestly leave it blank, don't fabricate one.",
+            "title": "Abstract"
+          }
+        },
+        "required": [
+          "title",
+          "relevant_snippet"
+        ],
+        "title": "CitedEvidence",
+        "type": "object"
+      },
+      "InterrogationQuestionType": {
+        "enum": [
+          "falsifiability",
+          "boundary_conditions",
+          "relabeling_suspicion"
+        ],
+        "title": "InterrogationQuestionType",
+        "type": "string"
+      },
+      "InterrogationRecord": {
+        "properties": {
+          "question_type": {
+            "$ref": "#/$defs/InterrogationQuestionType"
+          },
+          "question": {
+            "description": "A specific follow-up question raised against this candidate theory — must be specific to this theory's actual content, not a generic template",
+            "title": "Question",
+            "type": "string"
+          },
+          "assessment": {
+            "description": "Based only on the candidate theory's given content (and nothing else — cannot invoke a creation process you weren't told about) judge whether this follow-up can be reasonably answered, and why",
+            "title": "Assessment",
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/$defs/InterrogationVerdict"
+          },
+          "cited_evidence": {
+            "description": "When question_type=relabeling_suspicion, the literature found during independent retrieval verification (including raw abstract text) — the judgment of 'is this just an existing construct wearing a new label' must be traceable to real retrieval results, not concluded from a background impression drawn from training knowledge; the other two question types usually don't need retrieval, leave blank",
+            "items": {
+              "$ref": "#/$defs/CitedEvidence"
+            },
+            "title": "Cited Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_type",
+          "question",
+          "assessment",
+          "verdict"
+        ],
+        "title": "InterrogationRecord",
+        "type": "object"
+      },
+      "InterrogationVerdict": {
+        "enum": [
+          "withstands",
+          "weak",
+          "fails"
+        ],
+        "title": "InterrogationVerdict",
+        "type": "string"
+      }
+    },
+    "properties": {
+      "interrogated_candidate_name": {
+        "description": "The name of the candidate theory under interrogation — must match the given candidate theory exactly, cannot be renamed",
+        "title": "Interrogated Candidate Name",
+        "type": "string"
+      },
+      "exchanges": {
+        "description": "Must cover at least one each of falsifiability/boundary-conditions/relabeling-suspicion follow-ups; more rounds may be added depending on the candidate theory's specific content",
+        "items": {
+          "$ref": "#/$defs/InterrogationRecord"
+        },
+        "minItems": 3,
+        "title": "Exchanges",
+        "type": "array"
+      },
+      "unanswered_weaknesses": {
+        "description": "Honestly list the weaknesses this candidate theory hasn't yet answered well — can't hide weaknesses just because the interrogation record is self-authored too; even when the overall verdict is withstands, list any follow-up that wasn't answered well here honestly",
+        "items": {
+          "type": "string"
+        },
+        "title": "Unanswered Weaknesses",
+        "type": "array"
+      },
+      "overall_verdict": {
+        "$ref": "#/$defs/InterrogationVerdict",
+        "description": "The overall verdict combining every follow-up: if any follow-up's verdict=fails, the overall is fails (triggers a send-back to step 4); if no fails but some weak exist, the overall is weak (record the weaknesses, don't send back, proceed to the next step); if every follow-up withstands, the overall is withstands"
+      },
+      "loop_back_instruction": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Required when overall_verdict=fails: a specific revision instruction for step 4 — pinpointing which core-mechanism aspect doesn't hold up and how it needs to be adjusted; can't just say 'think of a better one,' must be specific to the problem the failed follow-up pointed to; left blank when overall_verdict is not fails",
+        "title": "Loop Back Instruction"
+      },
+      "loop_back_target_field": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/CandidateElementField"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Required when overall_verdict=fails: pinpoints which specific field of the `interrogated_candidate_name` candidate doesn't hold up (e.g. mechanism/borrowed_or_modified_construct) — step 4's revision only needs to rewrite this one field, leaving the rest untouched — this is to keep one field's flaw from dragging the entire candidate into being rebuilt from scratch (echoing the critique of Step-wise Rubric Rewards against a global scalar reward penalizing otherwise-good intermediate steps, see the evaluation-design section of the technical appendix). If the core mechanism fails as a whole and can't be attributed to one specific field, fill in `whole_candidate`; left blank when overall_verdict is not fails."
+      }
+    },
+    "required": [
+      "interrogated_candidate_name",
+      "exchanges",
+      "overall_verdict"
+    ],
+    "title": "Step5Output",
+    "type": "object"
+  }
+}

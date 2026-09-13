@@ -45,6 +45,13 @@ steps is explicit Python code, never something an agent decides on its own. Step
 wrapped in a loop (revise-and-reinterrogate on a core-mechanism flaw), but the loop controller itself is
 plain Python, not an agent.
 
+![ATBA's six-step multi-agent architecture: phenomenon deconstruction and theory-direction matching, an
+abductive core generate-judge loop (literature retrieval, candidate generation and ranking, adversarial
+interrogation with revision on a core-mechanism flaw, capped at 3 rounds before escalating to human
+review), and report generation](multi-agent-architecture.jpg)
+
+The same structure, as a renderable flowchart with the exact conditional edges:
+
 ```mermaid
 flowchart TD
     S1["1. Phenomenon input<br/>structured fact card, jargon check"]

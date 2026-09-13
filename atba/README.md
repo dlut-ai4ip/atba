@@ -189,6 +189,7 @@ practice are:
 | `ATBA_AUTH_USERNAME` / `ATBA_AUTH_PASSWORD` | **Required to change before any real deployment** | `atba` / `atba` | The single login account for the backend HTTP API/frontend (see [`auth.py`](auth.py)) — not a multi-user system, just a barrier so a casually-shared URL can't call LLM/retrieval APIs that cost real money. Irrelevant for pure CLI usage. |
 | `ATBA_AUTH_SECRET_KEY` | **Required to change before any real deployment** | a hardcoded dev value in the code | Signs the login token. Generate a real one with `python -c "import secrets; print(secrets.token_hex(32))"`. |
 | `ATBA_RUNS_DIR` | Optional | `runs/` under the repo root | Where each run's `runs/<run_id>/stepN.json` output files are written. |
+| `ATBA_FRONTEND_ORIGINS` | **Required once frontend and backend are on different domains** | — (localhost dev ports are always allowed) | Comma-separated list of frontend origin(s) to allow in CORS. Without this, the browser blocks every request from a deployed frontend with a CORS error, even though the backend itself is up and `/api/health` responds fine when hit directly — see [`api.py`](api.py). |
 
 The last three rows only matter once you run the backend (`uvicorn atba.api:app`) for real, rather than
 just the CLI — the default auth credentials/secret key are fine for local experimentation, but must never

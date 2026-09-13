@@ -14,6 +14,7 @@ Interactive docs: once started, visit http://localhost:8000/docs
 from __future__ import annotations
 
 import json
+import os
 from typing import AsyncIterator, Optional
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
@@ -52,8 +53,15 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# During development, a handful of common local frontend dev-server ports are opened directly; a
-# production deployment should tighten this to specific domains, never "*".
+# During development, a handful of common local frontend dev-server ports are opened directly. A
+# production deployment must add its real frontend origin via ATBA_FRONTEND_ORIGINS (atba/.env) rather
+# than editing this list in place — the two are on different subdomains typically (e.g.
+# theory.example.com talking to theoryapi.example.com), and the browser's cross-origin check happens
+# between it and *this* header, not something an nginx reverse proxy can work around by itself, since
+# nginx only routes requests. Keeping the real domain in .env instead of hardcoded here also means this
+# public repo's own git history never has to carry anyone's actual deployment domain. Comma-separated
+# for setups serving more than one frontend origin (e.g. staging + production).
+_extra_origins = [o.strip() for o in os.environ.get("ATBA_FRONTEND_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -61,12 +69,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        # Production deployment: the frontend (your-frontend-domain.example) and backend
-        # (your-backend-domain.example) are two different subdomains, and this is what allows the
-        # browser's cross-origin request through — it isn't something an nginx reverse proxy can work
-        # around, since nginx only routes requests, while cross-origin validation is between the
-        # browser and the backend's CORS headers.
-        "https://your-frontend-domain.example",
+        *_extra_origins,
     ],
     allow_credentials=True,
     allow_methods=["*"],
